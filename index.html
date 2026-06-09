@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>갈래 — 본줄기는 이어가고, 곁가지는 옆으로</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@latest/dist/web/static/pretendard.css">
+<style>
+  :root{
+    --bg:#FBFAF6; --surface:#FFFFFF; --ink:#26261F; --muted:#6F6E64; --faint:#9A998E;
+    --line:rgba(38,38,31,0.10); --line-2:rgba(38,38,31,0.20);
+    --trunk:#0F6E56; --trunk-soft:#E4F1EB;
+    --branch:#C0492A; --branch-soft:#FBEAE3; --branch-line:#E7B7A6;
+    --radius:12px;
+    font-family:"Pretendard","Pretendard Variable",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.75;}
+  header{padding:20px 28px;border-bottom:0.5px solid var(--line);display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
+  .logo{font-size:22px;font-weight:700;letter-spacing:-0.01em;} .logo b{color:var(--trunk);}
+  .tagline{font-size:13px;color:var(--muted);}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 28px 90px;}
+
+  .compose .lead{font-size:14px;color:var(--muted);margin:0 0 12px;}
+  textarea{width:100%;min-height:200px;resize:vertical;padding:16px 18px;font-family:inherit;font-size:15px;
+    line-height:1.75;color:var(--ink);background:var(--surface);border:0.5px solid var(--line-2);border-radius:var(--radius);outline:none;}
+  textarea:focus{border-color:var(--trunk);}
+  .send{margin-top:14px;border:none;background:var(--trunk);color:#fff;font-family:inherit;font-size:14px;font-weight:600;padding:11px 22px;border-radius:10px;cursor:pointer;}
+  .send:hover{opacity:.9;} .send:disabled{opacity:.4;cursor:default;}
+
+  .stage{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:22px;align-items:start;}
+  .col-label{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;margin:0 2px 12px;}
+  .col-label .dot{width:8px;height:8px;border-radius:50%;} .trunk-dot{background:var(--trunk);} .branch-dot{background:var(--branch);}
+  .col-label .sub{font-weight:400;color:var(--faint);}
+  .col-label .edit{margin-left:auto;font-size:12px;font-weight:400;color:var(--trunk);background:none;border:none;cursor:pointer;}
+  .col-label .edit:hover{text-decoration:underline;}
+
+  .thread{background:var(--surface);border:0.5px solid var(--line);border-radius:var(--radius);padding:22px 24px;}
+  .turns{display:flex;flex-direction:column;gap:16px;}
+  .doc-block{border:0.5px solid var(--line);border-radius:var(--radius);padding:13px 15px;background:#FCFEFD;}
+  .doc-block .tag{font-size:11px;color:var(--trunk);font-weight:600;margin-bottom:6px;}
+  .bubble{align-self:flex-start;background:var(--trunk-soft);color:#0B4F3E;padding:9px 14px;border-radius:12px;font-size:14px;font-weight:500;max-width:90%;}
+  .selectable{font-size:15px;white-space:pre-wrap;}
+  .selectable::selection{background:var(--branch-soft);}
+  .answer.loading{color:var(--faint);font-style:italic;}
+  .answer.err{color:var(--branch);}
+
+  .composer{display:flex;gap:8px;margin-top:18px;border-top:0.5px solid var(--line);padding-top:16px;}
+  .composer input{flex:1;font-family:inherit;font-size:14px;padding:10px 12px;border:0.5px solid var(--line-2);border-radius:10px;outline:none;}
+  .composer input:focus{border-color:var(--trunk);}
+  .composer button{border:none;background:var(--trunk);color:#fff;font-family:inherit;font-size:14px;font-weight:600;padding:0 18px;border-radius:10px;cursor:pointer;}
+  .composer button:disabled{opacity:.4;cursor:default;}
+  .hint{margin-top:10px;font-size:12.5px;color:var(--faint);}
+
+  .floater{position:fixed;z-index:50;display:none;background:var(--branch);color:#fff;font-size:12.5px;font-weight:600;
+    padding:7px 12px;border-radius:20px;cursor:pointer;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,0.18);transform:translateX(-50%);}
+  .floater:hover{opacity:.92;}
+
+  .branch-col{position:sticky;top:24px;}
+  .map{background:var(--surface);border:0.5px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;}
+  .map-title{font-size:11px;color:var(--faint);margin-bottom:8px;}
+  .map .node{font-size:13px;display:flex;gap:6px;padding:3px 0;color:var(--muted);}
+  .map .node.root{color:var(--ink);font-weight:500;} .map .tick{color:var(--branch-line);}
+  .map .node.leaf{cursor:pointer;border-radius:6px;padding:3px 6px;margin-left:-6px;}
+  .map .node.leaf:hover{background:var(--branch-soft);color:var(--branch);}
+  .map .node.leaf span.q{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  .stack{display:flex;flex-direction:column;gap:14px;}
+  .empty{border:0.5px dashed var(--line-2);border-radius:var(--radius);padding:30px 20px;text-align:center;color:var(--faint);font-size:13.5px;line-height:1.6;}
+  .card{background:var(--surface);border:0.5px solid var(--line);border-left:3px solid var(--branch);
+    border-radius:0 var(--radius) var(--radius) 0;padding:15px 16px 16px;animation:rise .2s ease;}
+  .card.child{margin-left:18px;}
+  @keyframes rise{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  @media (prefers-reduced-motion:reduce){.card{animation:none;}}
+  .card-head{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px;}
+  .anchor{font-size:11px;color:var(--faint);} .anchor b{display:block;color:var(--branch);font-size:12.5px;font-weight:600;margin-top:2px;line-height:1.45;}
+  .close{border:none;background:none;color:var(--faint);cursor:pointer;font-size:18px;line-height:1;padding:2px 4px;border-radius:6px;flex-shrink:0;}
+  .close:hover{background:var(--bg);color:var(--ink);}
+  .qrow{display:flex;gap:8px;}
+  .qrow input{flex:1;font-family:inherit;font-size:13px;padding:8px 10px;border:0.5px solid var(--line-2);border-radius:8px;outline:none;}
+  .qrow input:focus{border-color:var(--branch);}
+  .qrow button{border:none;background:var(--branch);color:#fff;font-family:inherit;font-size:13px;font-weight:600;padding:0 14px;border-radius:8px;cursor:pointer;}
+  .card .q{font-size:13.5px;font-weight:500;margin:0 0 7px;}
+  .card .a{font-size:13.5px;color:var(--muted);margin:8px 0 0;}
+  .card .a.loading{color:var(--faint);font-style:italic;}
+  .card .a.err{color:var(--branch);}
+  .hidden{display:none;}
+  @media (max-width:760px){.stage{grid-template-columns:1fr;}.branch-col{position:static;}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="compose" id="compose">
+      <p class="lead">먼저 글을 쓰거나 붙여넣고 보내세요. 그다음 본줄기에서 이어 질문하거나, 궁금한 부분을 드래그해 곁가지를 칠 수 있어요.</p>
+      <textarea id="draft" placeholder="여기에 글을 작성하거나 붙여넣으세요…">전기차는 겨울에 주행거리가 줄어든다. 리튬이온 배터리의 이온 이동이 저온에서 느려지고, 전해질의 점도가 높아지면서 내부 저항이 커지기 때문이다. 히터까지 전력을 끌어다 쓰면 체감 주행거리는 더 짧아진다.</textarea>
+      <button class="send" id="sendBtn">본줄기로 보내기</button>
+    </section>
+
+    <section class="stage hidden" id="stage">
+      <div>
+        <div class="col-label"><span class="dot trunk-dot"></span>본줄기 <span class="sub">— 이어서 질문할 수 있어요</span>
+          <button class="edit" id="editBtn">처음부터 다시</button>
+        </div>
+        <div class="thread">
+          <div class="turns" id="turns"></div>
+          <div class="composer">
+            <input type="text" id="trunkInput" placeholder="본줄기에서 이어서 질문하기…">
+            <button id="trunkSend">보내기</button>
+          </div>
+          <div class="hint">답변에서 궁금한 부분을 드래그하면 “곁가지 만들기”가 떠요. 곁가지를 봐도 본줄기는 그대로입니다.</div>
+        </div>
+      </div>
+      <aside class="branch-col">
+        <div class="col-label"><span class="dot branch-dot"></span>곁가지 <span class="sub">— 본줄기 옆에 나란히</span></div>
+        <div class="map"><div class="map-title">대화 지도</div><div id="map-body"><div class="node root"><span class="tick">●</span>본줄기</div></div></div>
+        <div class="stack" id="stack"><div class="empty" id="empty">아직 곁가지가 없어요.<br>본줄기에서 궁금한 부분을 드래그해 보세요.</div></div>
+      </aside>
+    </section>
+  </div>
+
+  <div class="floater" id="floater">＋ 곁가지 만들기</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let trunkTurns=[];           // {role:'doc'|'user'|'assistant', text}
+let branches=[]; let pending=null; let nextId=1; let busy=false;
+
+$('sendBtn').addEventListener('click', ()=>{
+  const text=$('draft').value.trim(); if(!text) return;
+  trunkTurns=[{role:'doc', text}];
+  renderTurns();
+  $('compose').classList.add('hidden'); $('stage').classList.remove('hidden');
+});
+$('editBtn').addEventListener('click', ()=>{ $('stage').classList.add('hidden'); $('compose').classList.remove('hidden'); branches=[]; renderBranches(); renderMap(); });
+
+/* 본줄기 렌더링 */
+function renderTurns(){
+  const c=$('turns'); c.innerHTML='';
+  trunkTurns.forEach(t=>{
+    if(t.role==='doc'){
+      const d=document.createElement('div'); d.className='doc-block';
+      d.innerHTML='<div class="tag">내 글</div>';
+      const s=document.createElement('div'); s.className='selectable'; s.dataset.scope='root'; s.textContent=t.text;
+      d.appendChild(s); c.appendChild(d);
+    } else if(t.role==='user'){
+      const b=document.createElement('div'); b.className='bubble'; b.textContent=t.text; c.appendChild(b);
+    } else {
+      const a=document.createElement('div'); a.className='answer selectable'+(t.loading?' loading':'')+(t.err?' err':'');
+      if(!t.loading&&!t.err) a.dataset.scope='root';
+      a.textContent=t.text; c.appendChild(a);
+    }
+  });
+}
+
+/* 본줄기 이어묻기 */
+$('trunkSend').addEventListener('click', sendTrunk);
+$('trunkInput').addEventListener('keydown', e=>{ if(e.key==='Enter') sendTrunk(); });
+async function sendTrunk(){
+  if(busy) return;
+  const q=$('trunkInput').value.trim(); if(!q) return;
+  $('trunkInput').value='';
+  trunkTurns.push({role:'user', text:q});
+  trunkTurns.push({role:'assistant', text:'답변 받는 중…', loading:true});
+  renderTurns(); setBusy(true);
+  $('turns').lastElementChild.scrollIntoView({behavior:'smooth',block:'nearest'});
+
+  try{
+    const ans=await callAPI(buildTrunkMessages(),
+      "사용자가 글을 쓰고 이어서 던지는 질문에 답하는 도우미입니다. 맥락을 이어받아 2~5문장으로 간결하고 친절하게 한국어로 답하세요.");
+    trunkTurns[trunkTurns.length-1]={role:'assistant', text:ans};
+  }catch(e){
+    trunkTurns[trunkTurns.length-1]={role:'assistant', text:"답변을 받지 못했어요. (잠시 후 다시 시도해 주세요.)", err:true};
+  }
+  renderTurns(); setBusy(false);
+}
+function buildTrunkMessages(){
+  const msgs=[]; const doc=trunkTurns[0].role==='doc'?trunkTurns[0].text:null;
+  let prefix=doc?('[내가 쓴 글]\n'+doc+'\n\n[이어지는 질문]\n'):'';
+  trunkTurns.forEach(t=>{
+    if(t.role==='user'){ msgs.push({role:'user', content:prefix+t.text}); prefix=''; }
+    else if(t.role==='assistant'&&!t.loading&&!t.err){ msgs.push({role:'assistant', content:t.text}); }
+  });
+  return msgs;
+}
+function setBusy(v){ busy=v; $('trunkSend').disabled=v; }
+
+/* 드래그 → 곁가지 */
+document.addEventListener('mouseup', e=>{ if(e.target.closest('.floater')) return; setTimeout(checkSelection,0); });
+function checkSelection(){
+  const sel=window.getSelection();
+  if(!sel||sel.isCollapsed){ hideFloater(); return; }
+  const text=sel.toString().trim(); if(text.length<2){ hideFloater(); return; }
+  const node=sel.anchorNode; const el=node&&(node.nodeType===3?node.parentElement:node).closest('.selectable');
+  if(!el){ hideFloater(); return; }
+  pending={text, parentId: el.dataset.scope==='root'?null:Number(el.dataset.scope)};
+  const r=sel.getRangeAt(0).getBoundingClientRect(); const f=$('floater');
+  f.style.display='block';
+  f.style.left=Math.min(window.innerWidth-90, Math.max(70, r.left+r.width/2))+'px';
+  f.style.top=(r.top-44)+'px';
+}
+function hideFloater(){ $('floater').style.display='none'; pending=null; }
+window.addEventListener('scroll', hideFloater, true);
+$('floater').addEventListener('mousedown', e=>{ e.preventDefault(); if(pending) createBranch(pending); hideFloater(); window.getSelection().removeAllRanges(); });
+
+function createBranch({text, parentId}){
+  $('empty').style.display='none';
+  const id=nextId++; const b={id, quote:text, parentId, question:'', answer:'', status:'idle'};
+  branches.push(b);
+  const card=document.createElement('div'); card.className='card'+(parentId?' child':''); card.id='card-'+id;
+  card.innerHTML='<div class="card-head"><div class="anchor">드래그한 부분<b>"'+esc(text)+'"</b></div><button class="close" aria-label="닫기">&times;</button></div>'+
+    '<div class="qrow"><input type="text" placeholder="이 부분, 무엇이 궁금한가요?"><button>묻기</button></div><div class="a hidden"></div>';
+  const pc=parentId&&$('card-'+parentId); if(pc) pc.after(card); else $('stack').appendChild(card);
+  const input=card.querySelector('input'), ask=card.querySelector('.qrow button');
+  const go=()=>{ const q=input.value.trim(); if(q) askBranch(b,q,card); };
+  ask.addEventListener('click', go); input.addEventListener('keydown', e=>{ if(e.key==='Enter') go(); });
+  card.querySelector('.close').addEventListener('click', ()=>closeBranch(id));
+  input.focus(); card.scrollIntoView({behavior:'smooth',block:'nearest'}); renderMap();
+}
+async function askBranch(b,q,card){
+  b.question=q; b.status='loading';
+  card.querySelector('.qrow').remove();
+  const qp=document.createElement('p'); qp.className='q'; qp.textContent=q;
+  card.insertBefore(qp, card.querySelector('.a'));
+  const ansEl=card.querySelector('.a'); ansEl.classList.remove('hidden'); ansEl.classList.add('loading'); ansEl.textContent='답변 받는 중…';
+  renderMap();
+  const doc=trunkTurns[0]?trunkTurns[0].text:'';
+  try{
+    const ans=await callAPI([{role:'user', content:`[전체 글]\n${doc}\n\n[드래그한 부분]\n"${b.quote}"\n\n[질문]\n${q}`}],
+      "글의 특정 부분에 대한 곁가지 질문에 답하는 도우미입니다. 맥락을 고려해 2~4문장으로 간결하고 친절하게 한국어로 답하세요.");
+    b.answer=ans; b.status='done';
+    ansEl.classList.remove('loading'); ansEl.classList.add('selectable'); ansEl.dataset.scope=b.id; ansEl.textContent=ans;
+  }catch(e){
+    b.status='error'; ansEl.classList.remove('loading'); ansEl.classList.add('err');
+    ansEl.textContent="답변을 받지 못했어요. (잠시 후 다시 시도해 주세요.)";
+  }
+}
+function closeBranch(id){
+  branches.filter(b=>b.parentId===id).forEach(c=>closeBranch(c.id));
+  $('card-'+id)?.remove(); branches=branches.filter(b=>b.id!==id);
+  if(branches.length===0) $('empty').style.display=''; renderMap();
+}
+function renderBranches(){ $('stack').querySelectorAll('.card').forEach(c=>c.remove()); $('empty').style.display=''; }
+
+function renderMap(){
+  let html='<div class="node root"><span class="tick">●</span>본줄기</div>';
+  const draw=(b,d)=>{ const q=b.question||b.quote;
+    html+='<div class="node leaf" data-id="'+b.id+'" style="margin-left:'+(d*16)+'px"><span class="tick">└</span><span class="q">'+esc(q)+'</span></div>';
+    branches.filter(c=>c.parentId===b.id).forEach(c=>draw(c,d+1)); };
+  branches.filter(b=>!b.parentId).forEach(b=>draw(b,1));
+  $('map-body').innerHTML=html;
+  $('map-body').querySelectorAll('.node.leaf').forEach(n=>n.addEventListener('click',()=>$('card-'+n.dataset.id)?.scrollIntoView({behavior:'smooth',block:'center'})));
+}
+
+async function callAPI(messages, system){
+  const res=await fetch("/api/ask",{
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({system, messages})
+  });
+  if(!res.ok) throw new Error('http '+res.status);
+  const data=await res.json();
+  const txt=(data.text||"").trim();
+  if(!txt) throw new Error('empty'); return txt;
+}
+function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+</script>
+</body>
+</html>
